@@ -4,6 +4,8 @@ mod video;
 #[cfg(feature = "video")]
 use self::video::*;
 use clap::{Parser, Subcommand};
+use image::DynamicImage;
+use jxl_oxide::integration::JxlDecoder;
 #[cfg(feature = "video")]
 use ssimulacra2::MatrixCoefficients;
 use ssimulacra2::{compute_frame_ssimulacra2, ColorPrimaries, Rgb, TransferCharacteristic};
@@ -164,10 +166,22 @@ fn main() {
     }
 }
 
+fn open_image(path: &Path) -> image::ImageResult<image::DynamicImage> {
+    match path.extension() {
+        Some(ext) if ext == "jxl" => {
+            let file = std::fs::File::open(path).expect("Failed to open image");
+            let decoder = JxlDecoder::new(file)?;
+            let img = DynamicImage::from_decoder(decoder)?;
+            Ok(img)
+        }
+        _ => image::open(path),
+    }
+}
+
 fn compare_images(source: &Path, distorted: &Path) {
     // For now just assumes the input is sRGB. Trying to keep this as simple as possible for now.
-    let source = image::open(source).expect("Failed to open source file");
-    let distorted = image::open(distorted).expect("Failed to open distorted file");
+    let source = open_image(source).expect("Failed to open source file");
+    let distorted = open_image(distorted).expect("Failed to open distorted file");
 
     let source_data = source
         .to_rgb32f()
